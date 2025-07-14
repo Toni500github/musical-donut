@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "parg.h"
 #define MINIAUDIO_IMPLEMENTATION
@@ -26,16 +25,17 @@ void platform_sleep(int ms)
     Sleep(ms);
 }
 
-int is_exiting(void)
+bool is_exiting(void)
 {
     if (_kbhit())
     {
         char c = _getch();
         return c == 'q' || c == 'Q';
     }
-    return 0;
+    return false;
 }
 #else
+#include <unistd.h>
 #include <termios.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -97,7 +97,6 @@ void print_donut(float speed)
     char b[1760];
     float Xspeed = speed / 100;
     float Yspeed = Xspeed / 2;
-    printf("\n%f\n", Xspeed);
     printf("\x1b[2J");
     while (1)
     {
@@ -152,7 +151,7 @@ bool parseargs(int argc, char* argv[], char *path, float *speed)
         switch (c)
         {
             case 'h':
-                    printf("Usage: %s -p PATH [-h] [-v] [-s SPEED]\n", argv[0]);
+                    printf("Usage: %s [-h] [-v] [-s SPEED] [-p PATH]\n", argv[0]);
                     return false;
             case 'p':
                     strcpy(path, ps.optarg);
@@ -184,25 +183,14 @@ int main(int argc, char *argv[])
     enable_raw_mode();
 #endif
 
-    if (argc < 3)
-    {
-        fprintf(stderr, "A path must be specified. Check -v for more");
-        return -1;
-    }
-
     char path[4096];
     float speed = 10;
-    struct stat buffer;
     if (!parseargs(argc, argv, path, &speed))
         return -1;
-    if (stat(path, &buffer) != 0) {
-        fprintf(stderr, "Path to audio file %s doesn't exist", path);
-        return -1;
-    }
 
     ma_engine engine;
     if (ma_engine_init(NULL, &engine) != MA_SUCCESS) {
-        fprintf(stderr, "Failed to load audio file");
+        fprintf(stderr, "Failed to init the audio engine");
         return -1;
     }
 
