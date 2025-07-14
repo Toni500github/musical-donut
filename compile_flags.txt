@@ -1,0 +1,7 @@
+-I./include
+-Wall
+-Wextra
+-Wpedantic
+-DVERSION="0.0.1"
+-DBRANCH="main"
+-DDEBUG=1
