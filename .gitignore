@@ -1,4 +1,5 @@
 donut
+*.tar.*
 
 # Prerequisites
 *.d

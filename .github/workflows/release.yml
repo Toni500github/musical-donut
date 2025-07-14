@@ -1,0 +1,144 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Only trigger on tags starting with 'v' (e.g., v0.0.1)
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        run: |
+          # Strip 'v' prefix if present and output clean version
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Extracted version: ${VERSION}"
+
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: donut-linux
+            outfile: donut
+            strip_cmd: strip build/donut
+          - os: macos-latest
+            artifact_name: donut-macos
+            outfile: donut
+            strip_cmd: strip build/donut
+          - os: windows-latest
+            artifact_name: donut-windows
+            outfile: donut.exe
+            strip_cmd: strip build/donut.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Install build tools (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          install: gcc make
+          update: true
+          path-type: inherit
+          msystem: MINGW64
+
+      - name: Build project
+        shell: bash
+        run: |
+          mkdir -p build
+          if make; then
+            cp "$(make vars | grep '^TARGET =' | cut -d' ' -f3)" build/${{ matrix.outfile }} || \
+            cp donut build/${{ matrix.outfile }}
+          else
+            echo "Make failed, falling back to direct compilation"
+            gcc -o build/${{ matrix.outfile }} src/*.c -Iinclude -DVERSION="\"${{ needs.get-version.outputs.version }}\"" -lm
+          fi
+
+      - name: Strip binary
+        run: |
+          ${{ matrix.strip_cmd }} || echo "Strip failed (non-fatal)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: build/${{ matrix.outfile }}
+          retention-days: 1
+
+  create-release:
+    name: Create Release
+    needs: [get-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release-url: ${{ steps.create-release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create-release
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          tag: ${{ github.ref_name }}  # Use the original tag with 'v'
+          name: Release ${{ needs.get-version.outputs.version }}  # Use clean version without 'v'
+          draft: false
+          prerelease: false
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-assets:
+    name: Upload Release Assets
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: donut-linux
+            asset_name: donut-${{ needs.get-version.outputs.version }}-linux
+            binary_name: donut
+          - os: macos-latest
+            artifact_name: donut-macos
+            asset_name: donut-${{ needs.get-version.outputs.version }}-macos
+            binary_name: donut
+          - os: windows-latest
+            artifact_name: donut-windows
+            asset_name: donut-${{ needs.get-version.outputs.version }}-windows.exe
+            binary_name: donut.exe
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ./artifacts
+
+      - name: Verify artifact download
+        run: ls -la ./artifacts
+
+      - name: Upload asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.release-url }}
+          asset_path: ./artifacts/${{ matrix.binary_name }}
+          asset_name: ${{ matrix.asset_name }}
+          asset_content_type: application/octet-stream
