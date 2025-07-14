@@ -1,3 +1,8 @@
+/*
+   Spinning 3D donut with option of playback music
+    Original video: https://www.youtube.com/watch?v=DEqXNfs_HhY
+*/
+
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
