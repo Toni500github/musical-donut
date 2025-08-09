@@ -184,17 +184,32 @@ bool parseargs(int argc, char* argv[], char *path, float *speed)
 
 int main(int argc, char *argv[])
 {
-#if !PLATFORM_WINDOWS
-    enable_raw_mode();
-#endif
-
-    char path[4096];
+    char path[4096] = "run in other mode";
     float speed = 10;
     if (!parseargs(argc, argv, path, &speed))
         return -1;
 
+    if (argc < 2 || strcmp(path, "run in other mode") == 0)
+    {
+        printf("Looks like you didn't select a path to an MP3, please insert one here: ");
+        if (fgets(path, sizeof(path), stdin) == NULL)
+            return -1;
+
+        // Remove trailing newline if present
+        path[strcspn(path, "\n")] = '\0';
+
+        printf("Select a speed (def. 10): ");
+        if (scanf("%f", &speed) != 0)
+            speed = 10;
+    }
+
+#if !PLATFORM_WINDOWS
+    enable_raw_mode();
+#endif
+
     ma_engine engine;
-    if (ma_engine_init(NULL, &engine) != MA_SUCCESS) {
+    if (ma_engine_init(NULL, &engine) != MA_SUCCESS)
+    {
         fprintf(stderr, "Failed to init the audio engine");
         return -1;
     }
