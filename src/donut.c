@@ -10,8 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "parg.h"
 #define MINIAUDIO_IMPLEMENTATION
+#include "parg.h"
 #include "miniaudio.h"
 
 #if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__) || defined(__CYGWIN__) || \
@@ -20,6 +20,10 @@
 #else
 # define PLATFORM_WINDOWS 0
 #endif
+
+// Minimum required dimensions
+#define MIN_COLS 80
+#define MIN_ROWS 24
 
 #if PLATFORM_WINDOWS
 # include <windows.h>
@@ -48,12 +52,25 @@ bool is_exiting(void)
     }
     return false;
 }
+
+bool is_terminal_too_small(void)
+{
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    
+    int cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    int rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    
+    return (cols < MIN_COLS) || (rows < MIN_ROWS);
+}
+
 #else
 #include <unistd.h>
 #include <termios.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 
 void platform_sleep(int ms)
 {
@@ -100,6 +117,15 @@ bool is_exiting(void)
     }
     return false;
 }
+
+bool is_terminal_too_small(void)
+{
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    
+    return (w.ws_col < MIN_COLS) || (w.ws_row < MIN_ROWS);
+}
+
 #endif
 
 void print_donut(float speed)
@@ -198,17 +224,24 @@ int main(int argc, char *argv[])
     if (!parseargs(argc, argv, path, &speed))
         return -1;
 
+    if (is_terminal_too_small())
+        fprintf(stderr, "Warning: Terminal is too small! Please resize to at least %dx%d.\n", 
+               MIN_COLS, MIN_ROWS);
+
     if (argc < 2 || strcmp(path, "run in other mode") == 0)
     {
-        printf("Looks like you didn't select a path to an MP3, please insert one here: ");
+        printf("Looks like you didn't select a path to an audio file, please insert one here: ");
         if (fgets(path, sizeof(path), stdin) == NULL)
             return -1;
-
-        // Remove trailing newline if present
+        
+        // Remove trailing newline
         path[strcspn(path, "\n")] = '\0';
 
+        if (fopen(path, "r") == NULL)
+            printf("Failed to load path, the donut will be mute");
+
         printf("Select a speed (def. 10): ");
-        if (scanf("%f", &speed) != 0)
+        if (scanf("%f", &speed) != 1)  // If not 1 item was successfully read
             speed = 10;
     }
 
