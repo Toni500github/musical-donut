@@ -20,4 +20,4 @@ Select a speed (def. 10): 15
 
 ## Building
 just run `make`\
-if you don't have it installed run `cc -o donut src/donut.c src/parg.c -Iinclude -DVERSION=\"0.0.1\" -lm`
+if you don't have it installed run `cc -o donut src/donut.c src/parg.c -Iinclude -DVERSION=\"0.0.3\" -lm`

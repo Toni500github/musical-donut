@@ -3,7 +3,7 @@ PREFIX  ?= /usr
 
 NAME	 = musical-donut
 TARGET	 = donut
-VERSION	 = 0.0.1
+VERSION	 = 0.0.3
 SRC 	 = $(wildcard src/*.c)
 OBJ	 = $(SRC:.c=.o)
 CFLAGS	 = -Iinclude -DVERSION=\"$(VERSION)\"

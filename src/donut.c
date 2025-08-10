@@ -238,9 +238,9 @@ int main(int argc, char *argv[])
         path[strcspn(path, "\n")] = '\0';
 
         if (fopen(path, "r") == NULL)
-            printf("Failed to load path, the donut will be mute");
+            fprintf(stderr, "Failed to load path, the donut will be mute\n");
 
-        printf("Select a speed (def. 10): ");
+        printf("Select a speed (min. 5): ");
         if (scanf("%f", &speed) != 1)  // If not 1 item was successfully read
             speed = 10;
     }
