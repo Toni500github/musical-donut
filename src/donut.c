@@ -25,6 +25,15 @@
 # include <windows.h>
 # include <conio.h>
 
+void enableANSI()
+{
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+}
+
 void platform_sleep(int ms)
 {
     Sleep(ms);
@@ -205,6 +214,8 @@ int main(int argc, char *argv[])
 
 #if !PLATFORM_WINDOWS
     enable_raw_mode();
+#else
+    enableANSI();
 #endif
 
     ma_engine engine;
